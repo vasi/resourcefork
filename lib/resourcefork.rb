@@ -15,9 +15,8 @@ class ResourceFork
 	end
 	
 	def initialize(io)
-		@io = io
 		@resources = {} # indexed by type, then id
-		readFork
+		Reader.new(self, io, @resources)
 		
 		# TODO: write; write on close?
 	end
