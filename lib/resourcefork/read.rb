@@ -27,22 +27,21 @@ class ResourceFork
 	def readU16; readUnsigned(2); end
 	def readU32; readUnsigned(4); end
 	
-	def mr2utf8(s)
-		Iconv.conv('UTF8', 'MacRoman', s)
-	end
-	def readFCC; mr2utf8(readBytes(4)); end
-	def readPstring; mr2utf8(readBytes(readU8)); end
+	def macRoman2UTF8(s); Iconv.conv('UTF8', 'MacRoman', s); end
+	def readFCC; macRoman2UTF8(readBytes(4)); end
+	def readPstring; macRoman2UTF8(readBytes(readU8)); end
 	
 	TypeEntry = Struct.new(:type, :count)
-	ResourceEntry = Struct.new(:resource, :dataOffset, :nameOffset)
+	ResourceEntry = Struct.new(:resource, :dataOffset, :nameOffset, :name)
+	
+	MAP_HEADER_RESERVED = 22
+	REFLIST_ENTRY_RESERVED = 4
 	
 	def readFork
-		# Fork header
-		seek 0
+		seek 0	# fork header
 		dataOffset, mapOffset = readU32, readU32
 		
-		# Map header
-		seek mapOffset + 22 # reserved
+		seek mapOffset + MAP_HEADER_RESERVED	# map header
 		attrs, typeOffset, nameOffset = readU16, readU16, readU16
 		# TODO: do something with attrs
 		
@@ -74,13 +73,13 @@ class ResourceFork
 			te.count.times do
 				id, noff, attrs = readU16, readSigned(2), readU8
 				doff = readUnsigned(3)
-				readBytes(4) # reserved
+				readBytes(REFLIST_ENTRY_RESERVED)
 				
 				# TODO: attrs
 				r = Resource.new(te.type, id)
 				rh[id] = r
 				entries << ResourceEntry.new(r, dataOff + doff,
-					noff == -1 ? nil : absNameOff + noff)
+					noff == -1 ? nil : absNameOff + noff, nil)
 			end
 		end
 		return entries

@@ -1,4 +1,5 @@
 require 'resourcefork/read'
+require 'resourcefork/write'
 
 class ResourceFork
 	class Resource
@@ -21,8 +22,9 @@ class ResourceFork
 		# TODO: write; write on close?
 	end
 	
+	# TODO: Cache sort?
 	def types; @resources.keys.sort; end
-	def resources(type)
+	def type(type)
 		rs = @resources[type] or return nil
 		rs.values.sort_by { |r| r.id }
 	end
@@ -30,13 +32,19 @@ class ResourceFork
 		rs = @resources[type] or return nil
 		rs[id]
 	end
+	def resources
+		types.inject([]) { |a,t| a.concat(type(t)) }
+	end
 end
 
 if __FILE__ == $0
-	rf = ResourceFork.new(open(ARGV.shift))
-	rf.types.each do |t|
-		rf.resources(t).each do |r|
-			puts "%4s  %5d  %s" % [t, r.id, r.name ? r.name : '']
+	f1, f2 = *ARGV
+	rf = ResourceFork.new(open(f1))
+	if f2
+		rf.write(open(f2, 'w'))
+	else
+		rf.resources.each do |r|
+			puts "%4s  %5d  %s" % [r.type, r.id, r.name ? r.name : '']
 		end
 	end
 end
