@@ -1,0 +1,4 @@
+attrs changed/locked/etc not respected!
+open -> read/write; data/rsrc/autodetect
+change resources in fork, ensure type/id unique
+probably won't parse very unusual forks
