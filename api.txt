@@ -1,4 +1,81 @@
-attrs changed/locked/etc not respected!
-open -> read/write; data/rsrc/autodetect
-change resources in fork, ensure type/id unique
-probably won't parse very unusual forks
+* Isolated resource
+
+rez = Resource.new(type, id)
+rez = Resource.new(type, id, name)
+rez = Resource.new(type, id, name, data) # name, data can be nil
+rez = Resource.new(type, id, name, data, :locked, :changed) # attrs
+rez.type = 'STR#'
+rez.id = 128
+rez.name = 'A string'
+rez.data = 'binary data'
+rez.preload = true
+# Attributes do not affect this library, they're just treated as data.
+# But OS X will understand them when written to disk.
+rez.attributes -> [:locked, :protected]
+rez.attributes = [:locked]
+
+
+* Isolated resource fork
+
+rf = ResourceFork.new
+rf = ResourceFork.new(:compact, :readonly)
+rf.attributes -> []
+rf.attributes = [:changed]
+
+
+* Fork/resource access
+
+# All results sorted by type, then ID
+rf.types -> ['STR ', 'WIND', ...]
+rf.type('STR ') -> [strRez1, strRez2, ...]
+rf.resource('STR ', 128) -> rez
+rf.resources -> [strRez1, strRez2, windRes, ...]
+
+
+* Fork/resource modification
+
+rf.add(rez1, rez2, ...) -> [previousRezWithID]
+rf.add(type, id, name, data, *attrs) -> ditto
+rf.remove(rez1, rez2, ...) -> [rezRemoved] # raise if not in fork
+rf.remove(type, id) -> rezRemoved
+
+rez = rf.resource(type, id)
+rez.type = 'STR ' # raise if type/id already exists
+rez.id = 128 # ditto, raise if in fork and id nil
+rez.move(type, id) # ditto
+
+rez2 = rez.dup
+rez2.id = nil
+rf.add(rez2) # auto-increment id
+rf.add(type, nil, ...) # ditto
+
+
+* Filesystem
+
+rf = ResourceFork.open(io)
+# fork is :resource, :data, :autodetect. Autodetect prefers resource fork
+rf = ResourceFork.open(path, fork = :autodetect, mode = 'r')
+rf.write(path, fork) # no autodetect
+
+ResourceFork.open(path, :data, 'w') do |rf|
+    rf.resource('FREF', 128).name = "A new name"
+    ...
+    # Fork is written at the end
+end
+
+
+* Exceptions
+
+DuplicateID
+    - Changed a resource type/id so it conflicts with another in fork
+InvalidID
+    - Gave in-fork resource an id of type nil
+NoSuchResource
+    - Tried to remove resource not in current fork
+NotResourceFork
+    - Tried to open something that doesn't look at all like a resource fork
+
+
+* Notes
+
+Make parsing resistant to strange forks
