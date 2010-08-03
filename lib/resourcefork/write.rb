@@ -1,6 +1,12 @@
 require 'iconv'
 
+# TODO: Atomic writing?
 class ResourceFork
+	def write(io)
+		Writer.new(self, io)
+	end
+	
+protected
 	class RW
 		HEADER_SIZE = 64
 		HEADER_PAD = HEADER_SIZE - 4 * 4
@@ -11,15 +17,12 @@ class ResourceFork
 		REFLIST_ENTRY_SIZE = REFLIST_ENTRY_RESERVED + 8
 	end
 	
-	def write(io)
-		Writer.new(self, io)
-	end
-	
 	class Writer < RW
 		def initialize(rf, io)
 			@io = io
 			
-			# Figure out some sizes and offsets
+			# Figure out some sizes and offsets, so we can write everything
+			# in sequence
 			typeEntries = rf.types.map do |t|
 				TypeEntry.new(t, rf.type(t).size)
 			end
@@ -40,7 +43,7 @@ class ResourceFork
 		
 			writeHeader(dataSize, mapSize)
 			writeData(resEntries)
-			writeMapHeader(mapSize - nameSize)
+			writeMapHeader(rf, mapSize - nameSize)
 			writeTypeList(typeEntries, typeListSize)
 			writeRefList(resEntries)
 			writeNameList(resEntries)
@@ -60,6 +63,14 @@ class ResourceFork
 		def macRoman(s); Iconv.conv('MacRoman', 'UTF8', s); end
 		def writeFCC(fcc); @io.write(macRoman(fcc)); end
 		
+		def writeAttributes(obj, bytes, attrList)
+			i = 0
+			attrList.reverse.each do |a|
+				i = (i << 1) + (obj.__send__(a) ? 1 : 0)
+			end
+			writeInt(bytes, i << (bytes * 8 - attrList.size))
+		end
+		
 		def writeHeader(dataSize, mapSize)
 			write32(HEADER_SIZE)
 			write32(HEADER_SIZE + dataSize)
@@ -76,9 +87,9 @@ class ResourceFork
 			end
 		end
 		
-		def writeMapHeader(nameListOffset)
+		def writeMapHeader(rf, nameListOffset)
 			writePad(MAP_HEADER_RESERVED)
-			write16(0)	# TODO: attrs
+			writeAttributes(rf, 2, ResourceFork::ATTRIBUTES)
 			write16(MAP_HEADER_SIZE)
 			write16(nameListOffset)
 		end
@@ -97,7 +108,7 @@ class ResourceFork
 			resEntries.each do |re|
 				write16(re.resource.id)
 				write16(re.nameOffset)
-				write8(0)	# TODO: attrs
+				writeAttributes(re.resource, 1, Resource::ATTRIBUTES)
 				writeInt(3, re.dataOffset)
 				writePad(REFLIST_ENTRY_RESERVED)
 			end

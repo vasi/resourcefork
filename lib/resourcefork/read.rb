@@ -1,6 +1,7 @@
 require 'iconv'
 
 class ResourceFork
+protected
 	class RW
 		TypeEntry = Struct.new(:type, :count)
 		ResourceEntry = Struct.new(:resource, :dataOffset, :nameOffset, :name)
@@ -17,8 +18,8 @@ class ResourceFork
 			dataOffset, mapOffset = readU32, readU32
 			
 			seek mapOffset + MAP_HEADER_RESERVED	# map header
-			attrs, typeOffset, nameOffset = readU16, readU16, readU16
-			# TODO: do something with attrs
+			readAttributes(rf, 2, ResourceFork::ATTRIBUTES)
+			typeOffset, nameOffset = readU16, readU16
 			
 			typeEntries = readTypeList
 			resEntries = readRefLists(outResources, typeEntries,
@@ -26,7 +27,7 @@ class ResourceFork
 			readNameList(resEntries)
 			readData(resEntries)
 		
-			# Hook 'em up
+			# Hook 'em up to the fork
 			resEntries.each do |re|
 				re.resource.instance_variable_set(:@fork, rf)
 			end
@@ -60,6 +61,14 @@ class ResourceFork
 		def readFCC; macRoman2UTF8(readBytes(4)); end
 		def readPstring; macRoman2UTF8(readBytes(readU8)); end
 	
+		def readAttributes(obj, bytes, attrList)
+			attrData = readUnsigned(bytes)
+			attrData >>= bytes * 8 - attrList.size
+			attrList.each do |a|
+				obj.__send__("#{a}=", attrData & 1 == 1)
+				attrData >>= 1
+			end
+		end
 		
 		def readTypeList
 			entries = []
@@ -75,12 +84,12 @@ class ResourceFork
 			typeEntries.each do |te|
 				rh = outResources[te.type] = {}
 				te.count.times do
-					id, noff, attrs = readU16, readSigned(2), readU8
+					id, noff = readU16, readSigned(2)
+					r = Resource.new(te.type, id)
+					readAttributes(r, 1, Resource::ATTRIBUTES)
 					doff = readUnsigned(3)
 					readBytes(REFLIST_ENTRY_RESERVED)
-				
-					# TODO: attrs
-					r = Resource.new(te.type, id)
+					
 					rh[id] = r
 					entries << ResourceEntry.new(r, dataOff + doff,
 						noff == -1 ? nil : absNameOff + noff, nil)
