@@ -57,7 +57,7 @@ protected
 		def readU16; readUnsigned(2); end
 		def readU32; readUnsigned(4); end
 	
-		def macRoman2UTF8(s); Iconv.conv('UTF8', 'MacRoman', s); end
+		def macRoman2UTF8(s); Iconv.conv('UTF8', 'MAC', s); end
 		def readFCC; macRoman2UTF8(readBytes(4)); end
 		def readPstring; macRoman2UTF8(readBytes(readU8)); end
 	

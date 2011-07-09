@@ -34,6 +34,7 @@ rf.resources -> [strRez1, strRez2, windRes, ...]
 
 * Fork/resource modification
 
+# If it's already in a fork, add a dupe
 rf.add(rez1, rez2, ...) -> [previousRezWithID]
 rf.add(type, id, name, data, *attrs) -> ditto
 rf.remove(rez1, rez2, ...) -> [rezRemoved] # raise if not in fork
@@ -78,4 +79,4 @@ NotResourceFork
 
 * Notes
 
-Make parsing resistant to strange forks
+Make parsing resistant to strange forks (assert on errors)
